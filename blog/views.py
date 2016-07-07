@@ -3,10 +3,32 @@ from django.shortcuts import get_object_or_404
 from django.shortcuts import redirect
 from django.utils import timezone
 from django.contrib.auth.decorators import login_required
+from django.dispatch import Signal
+from django.core.mail import send_mail
 from .models import Post
 from .models import Comment
 from .forms import PostForm
 from .forms import CommentForm
+from pkg_resources import iter_entry_points
+
+
+# Register the Signal
+email_signal = Signal(providing_args=['sender', 'author', 'text'])
+
+
+# Define a receiver method
+def send_not_aproved_email_receiver(sender, **kwargs):
+    author, text = kwargs['author'], kwargs['text']
+
+    send_mail('You have a new comment to aprove.',
+              '\nThe following message needs aprove:\n\nAuthor: ' + author + '\nComment: ' + text,
+              author,
+              ['<email_to_send>'],
+              fail_silently=False,
+              )
+
+# Connect the receiver with the log_it
+email_signal.connect(send_not_aproved_email_receiver)
 
 
 def post_list(request):
@@ -65,6 +87,9 @@ def add_comment_to_post(request, pk):
             comment = form.save(commit=False)
             comment.post = post
             comment.save()
+            email_signal.send(sender='email_sender',
+                              author=comment.author,
+                              text=comment.text)
             return redirect('blog.views.post_detail', pk=post.pk)
     else:
         form = CommentForm()
@@ -84,3 +109,17 @@ def comment_remove(request, pk):
     post_pk = comment.post.pk
     comment.delete()
     return redirect('blog.views.post_detail', pk=post_pk)
+
+
+# @login_required
+# def share_with_facebook(request, pk):
+#    post = get_object_or_404(Post, pk=pk)
+#    named_objects = {}
+#    for entry_point in iter_entry_points(group='plugin'):
+#        named_objects.update({entry_point.name: entry_point.load()})
+#    named_objects['post_plugin']("Post from BlogDAS\n" +
+#                                 "Title: " + post.title +
+#                                 "\nText: " + post.text,
+#                                 "<page_id_facebook>",
+#                                 "<facebook_access_token>")
+#    return post_list(request=request)

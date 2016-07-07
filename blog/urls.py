@@ -15,4 +15,5 @@ urlpatterns = [
         name='comment_approve'),
     url(r'^comment/(?P<pk>\d+)/remove/$', views.comment_remove,
         name='comment_remove'),
+    url(r'^share/(?P<pk>[0-9]+)/$', views.share_with_facebook, name='share_with_facebook'),
 ]
